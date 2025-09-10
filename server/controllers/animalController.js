@@ -1,4 +1,3 @@
-// filepath: c:\Users\Asu\Documents\GitHub\WildTrack\server\controllers\animalController.js
 import Animal from '../models/Animal.js'
 
 // @desc    Get all animals
@@ -33,7 +32,43 @@ export const getAnimalById = async (req, res) => {
 // @access  Private/Admin
 export const createAnimal = async (req, res) => {
   try {
-    const animal = new Animal(req.body)
+    const {
+      name,
+      species,
+      age,
+      category,
+      habitat,
+      diet,
+      description,
+      images,
+      conservation,
+      exhibit
+    } = req.body
+
+    // Validate required fields
+    if (!name || !species || !age || !category || !habitat || !diet || !description || !exhibit) {
+      return res.status(400).json({ message: 'Please fill all required fields' })
+    }
+
+    // Create animal with default values for optional fields
+    const animal = new Animal({
+      name,
+      species,
+      age,
+      category,
+      habitat,
+      diet,
+      description,
+      images: images || [],
+      conservation: {
+        status: conservation?.status || 'Least Concern',
+        population: conservation?.population || 'Unknown',
+        threats: conservation?.threats || []
+      },
+      exhibit,
+      schedule: []
+    })
+
     const newAnimal = await animal.save()
     res.status(201).json(newAnimal)
   } catch (error) {
@@ -51,11 +86,20 @@ export const updateAnimal = async (req, res) => {
       return res.status(404).json({ message: 'Animal not found' })
     }
 
+    // Ensure conservation object structure is maintained
+    if (req.body.conservation) {
+      req.body.conservation = {
+        ...animal.conservation,
+        ...req.body.conservation
+      }
+    }
+
     const updatedAnimal = await Animal.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      { ...req.body },
       { new: true, runValidators: true }
-    )
+    ).populate('exhibit')
+
     res.status(200).json(updatedAnimal)
   } catch (error) {
     res.status(400).json({ message: error.message })
@@ -72,7 +116,7 @@ export const deleteAnimal = async (req, res) => {
       return res.status(404).json({ message: 'Animal not found' })
     }
 
-    await animal.remove()
+    await animal.deleteOne()
     res.status(200).json({ message: 'Animal removed' })
   } catch (error) {
     res.status(500).json({ message: error.message })
